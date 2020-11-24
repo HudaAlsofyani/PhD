@@ -1,0 +1,481 @@
+# import collections
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+import pandas as pd 
+from numpy import empty
+import glob
+import csv
+from collections import defaultdict
+from sklearn.model_selection import train_test_split
+
+import numpy
+import matplotlib.pyplot as plt
+import pandas
+import math
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense,Input
+from tensorflow.keras.layers import SimpleRNN
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras.layers import LSTM,Dropout
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras import optimizers,initializers,regularizers
+from tensorflow import keras
+from sklearn.model_selection import StratifiedKFold, KFold
+
+from sklearn.model_selection import LeaveOneOut
+from sklearn import preprocessing
+import copy
+
+for it in range(0,10):
+    for v in range(1,6):
+   
+
+        path = '/Users/macbookpro/project/Vfeatures/*/'+str(v)+'/*.csv'
+        files=glob.glob(path)
+        #print(files)
+        files.sort()
+        seq_len=[]
+        for f in files :
+            sample=f.split('/')[5]
+            #print (sample)
+            #data
+            data=np.loadtxt(f,dtype='str',skiprows=1,usecols=range(2,34),delimiter=';')
+            #print(data.shape)
+            seq_len.append(data.shape[0])
+            
+
+            
+##########################################
+
+
+        participants=np.loadtxt('/Users/macbookpro/Documents/hhh.csv',delimiter=',',skiprows=1,usecols=range(0,2))
+        #np.loadtxt(file,delimiter=’,’,dtype=’string’,usecols=range(0,1))
+
+        participants=participants[np.lexsort(np.fliplr(participants).T)]
+        #participants
+
+
+
+        insecure=["C003","C008","C019","C022","C024","C032","C037","C039","C050","C052","C058","C059"
+                 ,"C066","C068","C070","C073","C074","C075","C077","C078","C080","C081","C082","C084"
+                  ,"C085","C086","C090","C095","C096","C097","C102","C103","C104","C106","C107","C108"
+                 ,"C109","C110","C114","C115","C116","C117","C118","C119","C120","C121"]
+        
+        
+##########################################
+
+        samples=len(files)
+        #Y=participants[0:(samples),1]
+        #Y[samples-1]=participants[36,1]
+        #Y.append(participants[41,1])
+        #y_test=participants[36,1]
+
+
+        #print(participants[0:(26)])
+        #print(Y[0:26])
+        #r=26
+        #n=28
+        #print(participants[0:n])
+        #r=r+1
+        #Y[r]=participants[n,1]
+        #print(Y[0:r])
+        Y = [None for _ in range(samples)]
+        ins=0
+        s=0
+        for (f,i) in zip(files,range(0,samples)) :
+            d=f.split('/')[5]
+            #print ('d')
+            #print (d)
+            if d in (insecure):
+                Y[i]=1
+                ins+=1
+            else:
+                Y[i]=0
+                s+=1
+        GT=Y
+
+
+####################################
+
+
+        lbl=np.empty([samples,2])
+        for yy in range(0,samples):   
+            if Y[yy]==0:
+                lbl[yy]=[1,0]
+            else:
+                lbl[yy]=[0,1]
+
+        
+
+        #Y1
+
+
+
+       # print(np.array(seq_len)/128)
+
+
+       # print(np.array(seq_len)//128)
+        
+        
+        
+##########################################
+        a=np.array(seq_len)//128
+        sum=0
+        for i in range(0,samples):
+            sum=sum+a[i]
+
+
+
+        target=[]
+        for i in range(0,samples):
+            c=np.array(empty([a[i],2]))
+            for j in range (0,a[i]):
+                c[j]=lbl[i]
+            target.append(c)
+            #print(c.shape)
+
+##########################################
+
+# rearrange the sequences to a list of 3-d arrays. each element corresponds to one sample 
+
+        #timessteps=10779
+        features=32
+        windowsize=128
+        #print(fileList[10])  
+        #data=np.pad(data,[(0,500),(0,0)])
+        #data.shape
+        X=[]
+        windows=[]
+        #windows=empty([samples,windowsize,features])
+        #test= pd.read_csv(fileList[25], sep=',',dtype="float64")
+        #padSize=int(10779-data.size/35)
+        #x_test=np.pad(data,[(0,padSize),(0,0)])
+
+        for (file,i) in zip(files,range(0,samples)):
+            data =np.loadtxt(file,dtype='float',skiprows=1,usecols=range(2,34),delimiter=';')
+            #data = np.loadtxt(file ,skiprows=1)
+            #print(data)
+            a=seq_len[i]//128
+            #print(a)
+            windows.append(a)
+            WX=empty([a,windowsize,features])
+            #print(data.size/35)
+            #print(X.shape)
+            #padSize=int(timessteps-data.size/35)
+            #data=np.pad(data,[(0,padSize),(0,0)])
+            #print(data[0].size)
+            #data=np.loadtxt(,dtype='str',skiprows=0)
+            for w in range(0,a):
+                beg=128*w
+                end=beg+128
+
+                WX[w]=data[beg:end]
+
+            X.append(WX)
+            #print (data.shape)
+##########################################
+
+        L2=1e-2
+        #EPOCHS=
+        #BATCHES=
+        LR=1e-3
+
+        CCCC=np.zeros(samples)
+        y_pred=np.zeros(samples)
+        #for f in range(0,samples):
+
+        tf.compat.v1.disable_eager_execution()
+        callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1,
+                              patience=5, min_lr=1e-5)
+        Ac=[]
+        y_true=[]
+
+        correctW=0
+        totalW=0
+        BATCH_SIZE=800
+        #X = [1, 2, 3, 4]
+        #loo = LeaveOneOut()
+        #for (file,f) in zip(fileList,range(0,samples)):
+
+        tf.keras.backend.clear_session()
+
+        #print(Ytrain.shape )
+
+
+
+        #opt =tf.keras.optimizers.Adam(learning_rate=5e-2)
+
+
+
+        kf =KFold(n_splits=5,shuffle=True)
+        X1=copy.deepcopy(X)
+        t1=copy.deepcopy(target)
+        #kf.get_n_splits(X1)
+
+            #print(X[test].shape)
+        for train_index, test_index in kf.split(X1):
+            print('*******************')
+            #f=1
+
+
+            X_train=[]
+            y_train=[]
+            X_test=[]
+            y_test=[]
+            #print(y[idx] for idx in train_index])
+            #print(y[test_index[0]:test_index[-1]+1])
+            for elm in train_index:
+                X_train.append(X1[elm]) 
+                y_train.append(t1[elm]) 
+
+            for elm in test_index:
+                X_test.append(X1[elm]) 
+                y_test.append(t1[elm]) 
+
+
+
+
+
+            Xtrain=np.concatenate(X_train, axis=0 )
+
+            Ytrain=np.concatenate(y_train, axis=0 )
+
+            #Xtest=np.concatenate(X_test, axis=0 )
+            #Ytest=np.concatenate(y_test, axis=0 )
+
+            #normalization
+
+
+            mu = np.mean(np.mean(Xtrain, axis=0), axis=0)
+            
+            #print(mu.shape)
+            #print("mu")
+            #print(mu)
+            
+            std = np.std(np.std(Xtrain, axis=0), axis=0)
+            #print("std")
+            #print(std)
+            #b = [17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]
+            #print (b)
+            #std[b] = 1
+            #mu[b] = 0
+            #for k in range(0, features):
+                #if std[k]==0:
+                    #continue;
+                
+
+
+                #Xtrain[:, :, k] = (Xtrain[:, :, k] - mu[k]) / std[k]
+                #Xtest[:, :, k] = (Xtest[:, :, k] - mu[k]) / std[k]
+
+
+            ####################
+            #print(X_train[0])
+            
+     
+
+            inputs= keras.Input(shape=(128,features))
+            first_layer = tf.keras.layers.LSTMCell(256
+                                                   ,activation='tanh'
+
+                                          ,kernel_initializer="glorot_uniform",
+            recurrent_initializer="orthogonal",
+           #bias_initializer="zeros"
+                                          kernel_regularizer=regularizers.l2(L2)
+                                        ,recurrent_regularizer=regularizers.l2(L2)
+                                          )
+            #drop1_layer=tf.keras.layers.Dropout(0.1)
+            second_layer = tf.keras.layers.LSTMCell(128
+                                                    ,activation='tanh'
+
+                                           ,kernel_initializer="glorot_uniform",
+
+                                                recurrent_initializer="orthogonal",
+            #bias_initializer="zeros"
+                                          kernel_regularizer=regularizers.l2(L2)
+                                        ,recurrent_regularizer=regularizers.l2(L2)
+                                           )
+            #drop2_layer=tf.keras.layers.Dropout(0.1)
+      
+
+            third_layer = tf.keras.layers.LSTMCell(64
+                                        ,activation='tanh'
+
+                               ,kernel_initializer="glorot_uniform",
+
+                                    recurrent_initializer="orthogonal",
+                                    #bias_initializer="zeros"
+                               kernel_regularizer=regularizers.l2(L2)
+                            ,recurrent_regularizer=regularizers.l2(L2)
+                               )
+
+
+            #stacked_lstm = tf.keras.layers.StackedRNNCells([first_layer, second_layer ])
+
+            # cell = tf.nn.rnn_cell.MultiRNNCell([first_layer, second_layer])
+            output =tf.keras.layers.RNN([first_layer, second_layer, third_layer ],return_sequences=True)(inputs)
+
+            #output=RNN(inputs)
+            #print("output.shape")
+            #print(output.shape)
+            #output=keras.layers.Dense(32
+                          # ,kernel_initializer="glorot_uniform"
+    #                         ,bias_initializer="zeros"
+                    #   )(output)
+
+
+
+
+
+
+            #output=tf.keras.layers.Dropout(0.2)(output)
+            output = tf.transpose(output, [1, 0, 2])
+
+            last = tf.gather(output, int(output.get_shape()[0]) - 1)
+            #print(last.shape)
+
+      
+
+            logit = keras.layers.Dense(2,activation=tf.keras.activations.softmax
+                               ,kernel_initializer="glorot_uniform"
+                              # ,bias_initializer="zeros"
+                              )(last)
+            print(logit.shape )
+            opt = tf.keras.optimizers.Adam(lr=LR)
+            model = keras.Model(inputs=inputs, outputs=logit)
+            #tf.losses.softmax_cross_entropy
+            #model.load_weights('model.h5')
+            model.compile(loss=tf.keras.losses.BinaryCrossentropy(), optimizer=opt,metrics=['binary_accuracy'])
+            hist=model.fit( Xtrain,Ytrain,validation_split=0.2,verbose=1,batch_size=512,epochs=5
+                      #,validation_data=[var1,var2]
+                      ,callbacks=[reduce_lr]
+                     )
+
+
+
+
+################################testing############################
+            score=[]
+
+            for ev in range(0,len(test_index)) :
+                #for k in range(0, features):
+                    #if std[k]==0:
+                        #continue;
+                    #X_test[ev][:, :, k] = (X_test[ev][:, :, k] - mu[k]) / std[k]
+            
+                #s = model.evaluate(X_test[ev], y_test[ev],verbose=1)
+                s=model.predict(X_test[ev])
+                print(s)
+                # print(p)
+                score.append(s[1])
+
+
+            #pred=model.predict(Xtest)
+
+                #l_val, acc_val = f_val(Xt, Yt)
+                #logging.info('epoch ' + str(n) + ' ,train_loss ' + str(l_train) + ' ,acc ' + str(acc_train) + ' ,val_loss ' + str(l_val) + ' ,acc ' + str(acc_val))
+
+            # loss =tf.keras.losses.BinaryCrossentropy(Ytrain, logit)
+            # optimizer =tf.keras.optimizers.Adam(learning_rate=1e-3)
+
+            #print(logit)
+
+
+
+
+            #y_true.append(Ytest[0])
+
+            for i,n in zip(test_index,range(len(score))) :
+                
+                print(i)
+                print(test_index)
+                print("here")
+                print(files[i][36:40])
+                print (GT[i])
+                #print(Ytest[i])
+                print('Score')
+                print(score[n])
+                #CCCC[i]=score[n]
+
+                if (score[n][0]>0.5):
+                    print(score[n][0])
+                    y_pred[i]=0
+                    #CCCC[i]=score[n][0]
+                    
+                else:
+                    print(score[n][1])
+                    y_pred[i]=1
+                    #CCCC[i]=score[n][1]
+                    
+                if GT[i]==0:
+                    CCCC[i]=score[n][0]
+                else:
+                    CCCC[i]=score[n][1]
+                    
+                    
+
+
+            print(CCCC)
+            print(y_pred)
+
+            #print('Ytrue')
+           # print(Ytest)
+            #print('Ypred')
+            #print(pred)
+
+        count=0
+        for m in range(0,samples):
+            print("******")
+            print (files[m][36:40])
+            #print((np.mean(overall_accuracy,axis=1)[m]))
+            if (CCCC[m])>0.5:
+
+                count+=1
+
+        MV=(count/samples )*100
+        MV
+
+
+
+
+
+        y_pred=y_pred.tolist() 
+        (y_pred ,GT)
+
+
+        model.summary()
+
+        from sklearn.metrics import confusion_matrix
+        confusion_matrix(GT, y_pred)
+
+
+        tn, fp, fn, tp = confusion_matrix(GT, y_pred).ravel()
+        (tn, fp, fn, tp)
+
+        from sklearn.metrics import precision_score
+
+        precision=precision_score(GT, y_pred)
+
+
+
+        from sklearn.metrics import recall_score,accuracy_score
+
+        recall=recall_score(GT, y_pred)
+
+        accuracy_score(GT, y_pred, normalize=True)
+
+        with open('/Users/macbookpro/project/Results/vocal12/'+str(v)+'/windowacc'+str(it)+'.csv', 'w') as csvfile:
+            spamwriter = csv.writer(csvfile,quoting=csv.QUOTE_MINIMAL)
+
+            spamwriter.writerow(['accuracy',MV])
+            spamwriter.writerow(['precision',precision])
+            spamwriter.writerow(['recall',recall])
+
+            for i in range(0,samples):
+                spamwriter.writerow([files[i][36:40],CCCC[i],GT[i]])
+
+  
